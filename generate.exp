@@ -1,0 +1,36 @@
+#!/usr/bin/expect
+
+## Configuration
+set passphrase "example_password"
+set rootCAKeyFile "rootCA.key"
+set rootCertFile "rootCA.pem"
+set certRequestConfigFile "server.csr.cnf"
+set certRequestFile "server.csr"
+set certKeyFile "server.key"
+set certFile "server.crt"
+set timeout -1
+
+## Generate a RSA-2048 key and save it to a file
+spawn openssl genrsa -des3 -out $rootCAKeyFile 2048
+expect "Enter pass phrase for $rootCAKeyFile:" { send -- "$passphrase\r" }
+expect "Verifying - Enter pass phrase for $rootCAKeyFile:" { send -- "$passphrase\r" }
+expect eof
+
+## Create a new Root SSL certificate.
+spawn openssl req -x509 -new -nodes -key $rootCAKeyFile -sha256 -days 1024 -out $rootCertFile
+expect "Enter pass phrase for rootCA.key:" { send -- "$passphrase\r" }
+expect "Country Name" { send -- "\r" }
+expect "State or Province Name" { send -- "\r" }
+expect "Locality Name (eg, city)" { send -- "\r" }
+expect "Organization Name (eg, company)" { send -- "\r" }
+expect "Organizational Unit Name (eg, section)" { send -- "\r" }
+expect "Common Name (e.g. server FQDN or YOUR name)" { send -- "\r" }
+expect "Email Address" { send -- "\r" }
+expect eof
+
+spawn bash -c "openssl req -new -sha256 -nodes -out $certRequestFile -newkey rsa:2048 -keyout $certKeyFile -config <( cat $certRequestConfigFile )"
+expect eof
+
+spawn bash -c "openssl x509 -req -in $certRequestFile -CA $rootCertFile -CAkey $rootCAKeyFile -CAcreateserial -out $certFile -days 358000 -sha256 -extfile v3.ext"
+expect "Enter pass phrase for rootCA.key:" { send -- "$passphrase\r" }
+expect eof
